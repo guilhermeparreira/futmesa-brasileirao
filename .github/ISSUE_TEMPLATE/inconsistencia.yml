@@ -1,0 +1,68 @@
+name: Avisar uma inconsistência
+description: Nome trocado, estado errado, posição, placar ou qualquer dado que não bate com o que aconteceu.
+title: "[Inconsistência] "
+labels: ["dados"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por ajudar a corrigir a base histórica do Campeonato Brasileiro (12 Toques)!
+        Preencha o que souber. Quanto mais específico, mais rápido a correção entra.
+  - type: dropdown
+    id: tipo
+    attributes:
+      label: O que está errado?
+      options:
+        - Nome do botonista (grafia, apelido, nome incompleto)
+        - Duas pessoas diferentes aparecem como uma só
+        - A mesma pessoa aparece como duas
+        - Estado (UF) do botonista
+        - Clube
+        - Posição, categoria ou divisão
+        - Jogos, vitórias, empates, derrotas, gols ou pontos
+        - Dados do campeonato (cidade, local, datas, participantes)
+        - Outro
+    validations:
+      required: true
+  - type: input
+    id: ano
+    attributes:
+      label: Ano(s) do campeonato
+      placeholder: "Ex.: 2007, ou 1995 a 1998"
+    validations:
+      required: true
+  - type: input
+    id: categoria
+    attributes:
+      label: Categoria e divisão
+      placeholder: "Ex.: Master, 2ª Divisão"
+  - type: input
+    id: botonista
+    attributes:
+      label: Botonista
+      description: Como o nome aparece hoje na página ou na planilha.
+      placeholder: "Ex.: Robertinho (PR)"
+  - type: textarea
+    id: atual
+    attributes:
+      label: Como está hoje
+      placeholder: "Ex.: aparece como campeão do Adulto em 2008 jogando por SP"
+    validations:
+      required: true
+  - type: textarea
+    id: correto
+    attributes:
+      label: Como deveria estar
+      placeholder: "Ex.: em 2008 ele jogava pelo PR"
+    validations:
+      required: true
+  - type: textarea
+    id: fonte
+    attributes:
+      label: Como você sabe?
+      description: Você estava lá, é a própria pessoa, tem a súmula, uma foto, um link? Qualquer referência ajuda.
+  - type: input
+    id: pagina
+    attributes:
+      label: Onde você viu o erro
+      placeholder: "Link da página do site ou página do PDF do histórico"
