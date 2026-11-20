@@ -8,14 +8,14 @@ PDF do histórico (1989–2025). Detalhes em `README.md`.
 ## Comandos
 
 ```bash
-pip install -r requirements.txt            # precisa também de poppler-utils (pdftotext)
-python -m futmesa --tabelas dados/2026 --saida saida             # anexa/substitui um ano (padrão)
-python -m futmesa --pdf HISTORICO.pdf --saida saida              # reconstrói 1989–2025
-python -m pytest -q tests
+make instalar                              # precisa também de poppler-utils (pdftotext)
+make atualizar PASTA=dados/2027            # anexa/substitui um ano (padrão; falha se a qualidade quebrar)
+make reconstruir                           # histórico + todas as pastas dados/<ano>/
+make testes
 ```
 
 O PDF do histórico fica fora do git (cópia local em `~/Downloads/HISTORICO-DO-CAMPEONATO-BRASILEIRO_12-Toques_3a-edicao_compressed.pdf`).
-Reconstruir do zero = rodar o histórico e depois `--tabelas` de cada ano recente.
+`make reconstruir` usa esse caminho por padrão (`HISTORICO=...` para trocar).
 
 ## Onde mexer
 
@@ -33,8 +33,9 @@ Reconstruir do zero = rodar o histórico e depois `--tabelas` de cada ano recent
 - O que o PDF não traz fica vazio; nada é imputado (única exceção: `posicao_geral` nos anos do
   histórico, calculada com a regra das tabelas oficiais). Inconsistências do PDF são reportadas na
   aba `qualidade`, não corrigidas.
-- Depois de qualquer mudança: rodar os testes e o pipeline e conferir que `qualidade` não ganhou
-  `chave_duplicada`, `posicoes_descontinuas` nem `botonista_repetido_no_ano`.
+- Depois de qualquer mudança: `make reconstruir` (roda os testes e o pipeline; sai com erro se
+  `qualidade` ganhar `chave_duplicada`, `posicoes_descontinuas`, `posicao_geral_descontinua` ou
+  `botonista_repetido_no_ano` — ver `BLOCKING_CHECKS` em `futmesa/quality.py`).
 - Nomes de colunas e textos para o usuário em português; código e docstrings em inglês.
 - Código: Clean Code, funções pequenas com nome descritivo no lugar de comentários, docstrings no
   estilo Google (seções completas só em funções públicas não triviais).

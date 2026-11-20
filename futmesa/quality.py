@@ -13,6 +13,13 @@ from .official_tables import SHIFTED_COLUMNS_NOTE
 from .transform import PRIMARY_KEY, UNREAD_STATS_NOTE
 
 ISSUE_COLUMNS = ["verificacao", "ano", "secao_original", "posicao", "botonista", "detalhe"]
+BLOCKING_CHECKS = (
+    "ano_sem_classificacao",
+    "chave_duplicada",
+    "posicoes_descontinuas",
+    "posicao_geral_descontinua",
+    "botonista_repetido_no_ano",
+)
 
 
 def run_quality_checks(rankings: pd.DataFrame, expected_years: list[int]) -> pd.DataFrame:
@@ -42,6 +49,11 @@ def run_quality_checks(rankings: pd.DataFrame, expected_years: list[int]) -> pd.
     if not non_empty:
         return pd.DataFrame(columns=ISSUE_COLUMNS)
     return pd.concat(non_empty, ignore_index=True)[ISSUE_COLUMNS]
+
+
+def blocking_issues(issues: pd.DataFrame) -> pd.DataFrame:
+    """Findings that mean the base is wrong (not just a typo reported from the PDF)."""
+    return issues[issues["verificacao"].isin(BLOCKING_CHECKS)]
 
 
 def summarise(issues: pd.DataFrame) -> pd.Series:

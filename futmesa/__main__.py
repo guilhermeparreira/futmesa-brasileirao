@@ -19,6 +19,7 @@ from .pipeline import (
     run_official_tables,
     run_pipeline,
 )
+from .quality import blocking_issues
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -65,6 +66,18 @@ def main() -> None:
         else _run_history_pdf(arguments, reference)
     )
     print(describe(result))
+    _fail_on_blocking_issues(result)
+
+
+def _fail_on_blocking_issues(result: PipelineResult) -> None:
+    """Exit with an error when a check that must stay empty found something."""
+    blocking = blocking_issues(result.issues)
+    if blocking.empty:
+        return
+    print("\nERRO: verificações que precisam ficar zeradas encontraram problemas:")
+    print(blocking.to_string(index=False))
+    print("A base foi gravada mesmo assim; corrija e rode de novo (ou desfaça com git).")
+    raise SystemExit(1)
 
 
 def _run_official_tables(arguments: argparse.Namespace, reference: ReferenceFiles) -> PipelineResult:

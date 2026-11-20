@@ -173,3 +173,10 @@ def test_overall_position_stacks_divisions_by_level():
     )
     filled = fill_overall_positions(rankings)
     assert filled["posicao_geral"].tolist() == [1, 2, 3, 4, 1, 7]
+
+
+def test_only_structural_checks_block_the_update():
+    from futmesa.quality import blocking_issues
+
+    issues = pd.DataFrame({"verificacao": ["uf_ausente", "chave_duplicada", "colunas_deslocadas"]})
+    assert blocking_issues(issues)["verificacao"].tolist() == ["chave_duplicada"]

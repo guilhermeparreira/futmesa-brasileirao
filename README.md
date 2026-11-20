@@ -66,25 +66,47 @@ Requisitos: Python ≥ 3.10, `poppler-utils` (fornece `pdftotext`; já vem no Ub
 desktop) e as bibliotecas de `requirements.txt` (inclui `markitdown[pdf]`).
 
 ```bash
-pip install -r requirements.txt
-python -m futmesa --tabelas dados/2026 --saida saida         # acrescenta/substitui um ano
-python -m futmesa --pdf HISTORICO.pdf --saida saida          # reconstrói 1989–2025
-python -m pytest -q tests                                     # testes dos parsers
+make instalar                       # pip install -r requirements.txt
+make atualizar PASTA=dados/2027     # acrescenta/substitui um ano (tabelas oficiais)
+make reconstruir                    # histórico (1989–2025) + todas as pastas dados/<ano>/
+make testes                         # testes dos parsers
 ```
 
-Para reconstruir tudo do zero: rode o histórico e depois `--tabelas` de cada ano recente.
+Sem `make`: `python -m futmesa --tabelas dados/2027 --saida saida` e
+`python -m futmesa --pdf HISTORICO.pdf --saida saida`.
 
 ## Adicionar o campeonato do próximo ano (padrão: tabelas oficiais)
 
-1. Crie a pasta `dados/<ano>/` e coloque nela os PDFs oficiais, um por categoria
-   (ex.: `2026_tabela128_ADULTO_br_individual_OFICIAL.pdf`).
+Roteiro (exemplo para 2027):
+
+1. Crie `dados/2027/` e coloque lá os PDFs oficiais, um por categoria — os mesmos
+   arquivos `..._br_individual_OFICIAL.pdf` publicados pela organização. O nome da pasta
+   é o ano.
 2. Rode:
 
-```bash
-python -m futmesa --tabelas dados/2026 --saida saida      # ano = nome da pasta (ou --ano 2026)
-```
+   ```bash
+   make atualizar PASTA=dados/2027
+   ```
 
-O que acontece:
+   Roda os testes, converte os PDFs, lê a classificação final e anexa 2027 à base
+   (`saida/`). Equivale a `python -m futmesa --tabelas dados/2027 --saida saida`.
+3. Confira o resumo impresso. O comando **termina com erro** se aparecer alguma
+   verificação que precisa ficar zerada (`chave_duplicada`, `posicoes_descontinuas`,
+   `posicao_geral_descontinua`, `botonista_repetido_no_ano`, `ano_sem_classificacao`);
+   as demais (`uf_ausente`, `saldo_diferente…`) são inconsistências do PDF, só reportadas.
+4. Se precisar, ajuste os CSVs de `dados/` e rode o mesmo comando de novo (substitui o
+   ano, não duplica):
+   - local da disputa → `dados/campeonatos.csv` (sede e datas já vêm do PDF);
+   - erro de digitação ou estrangeiro (`NOME-XX` → `NOME-XX*`) → `dados/correcoes_texto.csv`;
+   - mesmo botonista com outra grafia → `dados/depara_botonistas.csv` (`aplicar = sim`).
+5. Faça o commit de `saida/`, dos CSVs e dos `.md` de `dados/2027/` (os PDFs ficam fora
+   do git pelo `.gitignore`).
+
+Outros alvos: `make reconstruir` refaz a base inteira (PDF do histórico + todas as pastas
+`dados/<ano>/`, em ordem; caminho do histórico em `HISTORICO=...`), `make testes`,
+`make instalar`.
+
+O que acontece na leitura:
 
 - cada PDF é convertido com markitdown para `dados/<ano>/<mesmo nome>.md` (fica salvo
   para auditoria);
@@ -196,6 +218,7 @@ Entram na base com `posicao` vazia e a explicação em `observacao`.
 ## Estrutura do código
 
 ```
+Makefile          atualizar / reconstruir / testes / instalar
 futmesa/
   official_tables.py  tabelas oficiais: PDF → markdown (markitdown) → classificação final
   pdf_text.py     PDF → texto por página (pdftotext -layout) e leitura do índice
