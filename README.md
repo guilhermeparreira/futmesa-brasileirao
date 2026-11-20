@@ -5,7 +5,7 @@ Gera uma base tabular em **Parquet** e **Excel** com todas as classificações f
 
 | Fonte | Anos | Uso |
 |---|---|---|
-| **Tabelas oficiais** do campeonato: um PDF por categoria (`dados/<ano>/*.pdf`), convertido para markdown com [markitdown](https://github.com/microsoft/markitdown) | 2026 em diante | **padrão** para acrescentar um ano novo: sai direto das tabelas, sem esperar o histórico |
+| **Tabelas oficiais** do campeonato: um PDF por categoria (`dados/<ano>/*.pdf`), baixado em [documentos oficiais da CBFM](https://www.cbfm.com.br/documentos-oficiais/) → *12 Toques* → *Tabela*, e convertido para markdown com [markitdown](https://github.com/microsoft/markitdown) | 2026 em diante | **padrão** para acrescentar um ano novo: sai direto das tabelas, sem esperar o histórico |
 | PDF *Histórico do Campeonato Brasileiro Individual 12 Toques* | 1989–2025 | reconstruir a base inteira |
 
 ## Saídas (`saida/`)
@@ -79,9 +79,9 @@ Sem `make`: `python -m futmesa --tabelas dados/2027 --saida saida` e
 
 Roteiro (exemplo para 2027):
 
-1. Crie `dados/2027/` e coloque lá os PDFs oficiais, um por categoria — os mesmos
-   arquivos `..._br_individual_OFICIAL.pdf` publicados pela organização. O nome da pasta
-   é o ano.
+1. Crie `dados/2027/` e coloque lá os PDFs oficiais, um por categoria — os arquivos
+   `..._br_individual_OFICIAL.pdf` de https://www.cbfm.com.br/documentos-oficiais/
+   (*12 Toques* → *Tabela*). O nome da pasta é o ano.
 2. Rode:
 
    ```bash
