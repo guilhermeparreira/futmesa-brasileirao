@@ -1,4 +1,11 @@
-"""End-to-end pipeline: PDF -> typed tables -> Parquet + Excel."""
+"""End-to-end pipeline: source PDFs -> typed tables -> Parquet + Excel.
+
+Two sources feed the same base:
+
+* the official result tables of one championship (one PDF per category,
+  read through markitdown) — the default way to add a new year;
+* the championship-history PDF — used to rebuild the whole base.
+"""
 
 from __future__ import annotations
 
@@ -10,19 +17,21 @@ import pandas as pd
 from .corrections import load_corrections
 from .export import PEOPLE_PARQUET, merge_years, read_base, save_base
 from .extraction import extract_championship
+from .official_tables import read_official_tables
 from .people import assign_person_ids, build_people_table
 from .pdf_text import Championship, find_championships, read_pages
 from .quality import run_quality_checks, summarise
-from .transform import build_championships_table, build_ranking_table
+from .transform import build_championships_table, build_ranking_table, fill_overall_positions
 from .unranked import load_unranked_participants
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
-DEFAULT_METADATA = PROJECT_DIR / "dados" / "campeonatos.csv"
-DEFAULT_CORRECTIONS = PROJECT_DIR / "dados" / "correcoes_texto.csv"
-DEFAULT_UNRANKED = PROJECT_DIR / "dados" / "participantes_sem_classificacao.csv"
-DEFAULT_PLAYER_DEPARA = PROJECT_DIR / "dados" / "depara_botonistas.csv"
-DEFAULT_CLUB_DEPARA = PROJECT_DIR / "dados" / "depara_clubes.csv"
-DEFAULT_PEOPLE_OVERRIDES = PROJECT_DIR / "dados" / "pessoas_manual.csv"
+DATA_DIR = PROJECT_DIR / "dados"
+DEFAULT_METADATA = DATA_DIR / "campeonatos.csv"
+DEFAULT_CORRECTIONS = DATA_DIR / "correcoes_texto.csv"
+DEFAULT_UNRANKED = DATA_DIR / "participantes_sem_classificacao.csv"
+DEFAULT_PLAYER_DEPARA = DATA_DIR / "depara_botonistas.csv"
+DEFAULT_CLUB_DEPARA = DATA_DIR / "depara_clubes.csv"
+DEFAULT_PEOPLE_OVERRIDES = DATA_DIR / "pessoas_manual.csv"
 
 
 @dataclass(frozen=True)
@@ -35,6 +44,18 @@ class SingleYearPdf:
 
 
 @dataclass(frozen=True)
+class ReferenceFiles:
+    """Curated CSVs in ``dados/`` that complete and correct the source PDFs."""
+
+    metadata_csv: Path | None = DEFAULT_METADATA
+    corrections_csv: Path | None = DEFAULT_CORRECTIONS
+    unranked_csv: Path | None = DEFAULT_UNRANKED
+    player_depara_csv: Path | None = DEFAULT_PLAYER_DEPARA
+    club_depara_csv: Path | None = DEFAULT_CLUB_DEPARA
+    people_overrides_csv: Path | None = DEFAULT_PEOPLE_OVERRIDES
+
+
+@dataclass(frozen=True)
 class PipelineResult:
     """Tables produced by a run and the files written."""
 
@@ -44,36 +65,51 @@ class PipelineResult:
     files: list[Path]
 
 
+def run_official_tables(
+    tables_dir: Path,
+    output_dir: Path,
+    year: int,
+    reference: ReferenceFiles = ReferenceFiles(),
+) -> PipelineResult:
+    """Add (or replace) one championship read from its official result tables.
+
+    Every PDF in ``tables_dir`` (one per category) is converted to Markdown
+    with markitdown and its final classification is read. The year replaces
+    the same year in the base saved in ``output_dir``; the other years are kept.
+
+    Args:
+        tables_dir: Folder with the category PDFs (e.g. ``dados/2026``).
+        output_dir: Folder where the base is read from and written to.
+        year: Championship year.
+        reference: Curated CSVs (metadata, corrections, de-para, ids).
+
+    Returns:
+        The final tables and the paths of the files written.
+    """
+    corrections = load_corrections(reference.corrections_csv)
+    championship, records = read_official_tables(tables_dir, year, corrections)
+    return _build_and_save(records, [championship], output_dir, reference, merge=True)
+
+
 def run_pipeline(
     pdf_path: Path,
     output_dir: Path,
     years: list[int] | None = None,
     single_year_pdf: SingleYearPdf | None = None,
-    metadata_csv: Path | None = DEFAULT_METADATA,
-    corrections_csv: Path | None = DEFAULT_CORRECTIONS,
-    unranked_csv: Path | None = DEFAULT_UNRANKED,
-    player_depara_csv: Path | None = DEFAULT_PLAYER_DEPARA,
-    club_depara_csv: Path | None = DEFAULT_CLUB_DEPARA,
-    people_overrides_csv: Path | None = DEFAULT_PEOPLE_OVERRIDES,
+    reference: ReferenceFiles = ReferenceFiles(),
 ) -> PipelineResult:
-    """Extract the rankings from the PDF and save the base.
+    """Extract the rankings from the history PDF and save the base.
 
     Without ``years`` the whole base is rebuilt from the PDF. With ``years``
     only those championships are extracted and they replace the same years
-    in the base already saved in ``output_dir`` (the other years are kept),
-    which is how a new championship is appended each year.
+    in the base already saved in ``output_dir`` (the other years are kept).
 
     Args:
         pdf_path: Championship-history PDF (or a PDF with a single edition).
         output_dir: Folder where the base is read from and written to.
         years: Years to extract and replace; ``None`` rebuilds everything.
         single_year_pdf: Use when the PDF has no index and holds one edition.
-        metadata_csv: Curated venue/dates per edition.
-        corrections_csv: Manual fixes for typos in the PDF text.
-        unranked_csv: Participants cited without a final position.
-        player_depara_csv: Reviewed de-para of player names.
-        club_depara_csv: Reviewed de-para of club names.
-        people_overrides_csv: Manual person ids for a name + state.
+        reference: Curated CSVs (metadata, corrections, de-para, ids).
 
     Returns:
         The final tables and the paths of the files written.
@@ -84,27 +120,41 @@ def run_pipeline(
     """
     pages = read_pages(pdf_path)
     championships = _select_championships(pages, years, single_year_pdf)
-    corrections = load_corrections(corrections_csv)
+    corrections = load_corrections(reference.corrections_csv)
     records = [
-        record
+        {**record, "arquivo_fonte": pdf_path.name}
         for championship in championships
         for record in extract_championship(championship, pages, corrections)
     ]
-    records += load_unranked_participants(unranked_csv, [c.year for c in championships])
-    championship_table = build_championships_table(championships, metadata_csv)
+    merge = bool(years or single_year_pdf)
+    return _build_and_save(records, championships, output_dir, reference, merge)
+
+
+def _build_and_save(
+    records: list[dict],
+    championships: list[Championship],
+    output_dir: Path,
+    reference: ReferenceFiles,
+    merge: bool,
+) -> PipelineResult:
+    """Common tail of both sources: type, merge, identify people, check and save."""
+    years = [c.year for c in championships]
+    records = records + load_unranked_participants(reference.unranked_csv, years)
+    championship_table = build_championships_table(championships, reference.metadata_csv)
     championship_table = championship_table[
-        championship_table["ano"].isin([c.year for c in championships])
+        championship_table["ano"].isin(years)
     ].reset_index(drop=True)
     rankings = build_ranking_table(
-        records, championship_table, player_depara_csv, club_depara_csv
+        records, championship_table, reference.player_depara_csv, reference.club_depara_csv
     )
-    if years or single_year_pdf:
+    if merge:
         rankings, championship_table = _merge_with_saved_base(
             output_dir, rankings, championship_table
         )
-    rankings["id_botonista"] = assign_person_ids(rankings, people_overrides_csv)
+    rankings = fill_overall_positions(rankings)
+    rankings["id_botonista"] = assign_person_ids(rankings, reference.people_overrides_csv)
     issues = run_quality_checks(rankings, championship_table["ano"].astype(int).tolist())
-    depara_sheets = _read_depara_sheets(player_depara_csv, club_depara_csv)
+    depara_sheets = _read_depara_sheets(reference.player_depara_csv, reference.club_depara_csv)
     people = build_people_table(rankings)
     extra_sheets = {"botonistas": people, **depara_sheets}
     files = save_base(output_dir, rankings, championship_table, issues, extra_sheets)

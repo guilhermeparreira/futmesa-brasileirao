@@ -12,7 +12,8 @@ BRAZILIAN_UFS = frozenset(
 RANKING_LINE = re.compile(r"^\s*(?P<position>\d{1,3})\s*(?P<ordinal>[º°])?\s+(?P<body>\S.*?)\s*$")
 WALKOVER = re.compile(r"\(\s*W\s*\.?\s*O\s*\.?\s*\)", re.IGNORECASE)
 INTEGER = re.compile(r"^-?\d+$")
-UF_AFTER_DASH = re.compile(r"^(?P<name>.*?)\s*[-–·]\s*(?P<uf>[A-Z]{2})\s*[)\-–]?$")
+FOREIGN_MARK = "*"
+UF_AFTER_DASH = re.compile(r"^(?P<name>.*?)\s*[-–·]\s*(?P<uf>[A-Z]{2}\*?)\s*[)\-–]?$")
 UF_IN_PARENTHESES = re.compile(r"^(?P<name>.*?)\s*\((?P<uf>[A-Z]{2})\)$")
 UF_AFTER_GAP = re.compile(r"^(?P<name>.*\S)\s{2,}(?P<uf>[A-Z]{2})$")
 CLUB_IN_PARENTHESES = re.compile(r"^(?P<name>[^()]*?)\s*\((?P<club>[^()]+)\)\s*$")
@@ -126,10 +127,12 @@ def _split_uf(text: str) -> tuple[str, str | None]:
     """Take the player's state from ``NAME - UF``, ``NAME (UF)`` or ``NAME    UF``.
 
     A UF printed twice (``FERNANDO-PR-PR``, 2013) is removed from the name.
+    A foreign player's country code marked with ``*`` (``ANDRAS HICZ-HU*``,
+    written by a correction in ``dados/correcoes_texto.csv``) is kept as the UF.
     """
     for pattern in (UF_AFTER_DASH, UF_IN_PARENTHESES, UF_AFTER_GAP):
         match = pattern.match(text)
-        if match and match["uf"] in BRAZILIAN_UFS:
+        if match and (match["uf"] in BRAZILIAN_UFS or match["uf"].endswith(FOREIGN_MARK)):
             return _drop_repeated_uf(match["name"].strip(), match["uf"]), match["uf"]
     return text.strip(), None
 

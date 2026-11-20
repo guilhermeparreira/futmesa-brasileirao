@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import subprocess
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 INDEX_TITLE = "ÍNDICE"
@@ -17,7 +18,7 @@ CITY_UF = re.compile(r"^(?P<city>.+?)\s*[-–]\s*(?P<uf>[A-Z]{2})$")
 
 @dataclass(frozen=True)
 class Championship:
-    """One edition of the championship as listed in the PDF index."""
+    """One edition of the championship (from the PDF index or the official tables)."""
 
     year: int
     edition: int | None
@@ -25,6 +26,8 @@ class Championship:
     uf: str | None
     first_page: int
     last_page: int
+    start_date: date | None = None
+    end_date: date | None = None
 
 
 def read_pages(pdf_path: Path) -> list[str]:

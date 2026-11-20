@@ -1,0 +1,3 @@
+__pycache__/
+# PDFs oficiais ficam fora do git; o markdown gerado deles entra
+dados/*/*.pdf

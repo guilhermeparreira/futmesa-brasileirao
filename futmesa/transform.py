@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
@@ -41,6 +42,7 @@ RANKING_COLUMNS = [
     "divisao_nivel",
     "secao_original",
     "posicao",
+    "posicao_geral",
     "botonista",
     "apelido",
     "botonista_chave",
@@ -53,10 +55,13 @@ RANKING_COLUMNS = [
     "wo",
     *STAT_COLUMNS,
     "observacao",
+    "arquivo_fonte",
     "pagina_pdf",
     "linha_original",
 ]
-INTEGER_COLUMNS = ["ano", "edicao", "divisao_nivel", "posicao", "pagina_pdf", *STAT_COLUMNS]
+INTEGER_COLUMNS = [
+    "ano", "edicao", "divisao_nivel", "posicao", "posicao_geral", "pagina_pdf", *STAT_COLUMNS
+]
 DATE_COLUMNS = ["data_inicio", "data_fim"]
 CATEGORY_ORDER = ["Adulto", "Master", "Sub-20", "Sub-18", "Sub-15", "Infantil"]
 LOWERCASE_PARTICLES = {"de", "da", "do", "das", "dos", "e"}
@@ -69,10 +74,11 @@ def build_championships_table(
     """One row per edition: index data completed by the curated metadata CSV.
 
     Values in the CSV (venue, dates, reported number of players) take
-    precedence; edition, city and UF fall back to the PDF index.
+    precedence; edition, city, UF and dates fall back to what the source
+    PDF says (the history index or the official-table headers).
 
     Args:
-        championships: Editions found in the PDF index.
+        championships: Editions found in the source PDF.
         metadata_csv: ``dados/campeonatos.csv`` or ``None``.
 
     Returns:
@@ -84,6 +90,8 @@ def build_championships_table(
             "edicao": [c.edition for c in championships],
             "cidade_campeonato": [c.city for c in championships],
             "uf_campeonato": [c.uf for c in championships],
+            "data_inicio": [_iso_date(c.start_date) for c in championships],
+            "data_fim": [_iso_date(c.end_date) for c in championships],
         }
     ).set_index("ano")
     curated = _read_metadata(metadata_csv)
@@ -93,6 +101,10 @@ def build_championships_table(
             combined[column] = pd.NA
     table = combined.reset_index()
     return _apply_types(table).sort_values("ano", ignore_index=True)
+
+
+def _iso_date(day: date | None) -> str | None:
+    return day.isoformat() if day else None
 
 
 def _read_metadata(metadata_csv: Path | None) -> pd.DataFrame:
@@ -125,7 +137,7 @@ def build_ranking_table(
         DataFrame with exactly :data:`RANKING_COLUMNS`.
     """
     rankings = pd.DataFrame.from_records(records)
-    for column in STAT_COLUMNS + ["observacao"]:
+    for column in STAT_COLUMNS + ["observacao", "posicao_geral", "arquivo_fonte"]:
         if column not in rankings:
             rankings[column] = pd.NA
     rankings = reinterpret_uf_in_club_sections(rankings)
@@ -140,6 +152,40 @@ def build_ranking_table(
     rankings["id_botonista"] = pd.NA
     rankings = _apply_types(rankings[RANKING_COLUMNS])
     return sort_rankings(rankings)
+
+
+def fill_overall_positions(rankings: pd.DataFrame) -> pd.DataFrame:
+    """Compute ``posicao_geral`` for the categories whose source does not print it.
+
+    Same rule as the ``POS.`` column of the official tables: inside a year
+    and category the divisions are stacked by ``divisao_nivel`` and each
+    division starts right after the last position of the divisions above
+    (1ª Divisão with 16 players -> the 2ª Divisão champion is 17º). Only
+    categories with no printed ``posicao_geral`` at all are filled; rows
+    without ``posicao`` stay empty.
+
+    Args:
+        rankings: Ranking table (the whole base).
+
+    Returns:
+        The table with ``posicao_geral`` filled where it was missing.
+    """
+    filled = rankings.copy()
+    for _, category in filled.groupby(["ano", "categoria"], sort=False):
+        if category["posicao_geral"].notna().any():
+            continue
+        offsets = _division_offsets(category)
+        filled.loc[category.index, "posicao_geral"] = (
+            category["posicao"] + category["divisao_nivel"].map(offsets)
+        ).astype("Int64")
+    return filled
+
+
+def _division_offsets(category: pd.DataFrame) -> dict[int, int]:
+    """Places taken by the divisions above each level: sum of their last positions."""
+    last_positions = category.groupby("divisao_nivel")["posicao"].max().fillna(0).sort_index()
+    above = last_positions.cumsum().shift(fill_value=0)
+    return {int(level): int(offset) for level, offset in above.items()}
 
 
 def reinterpret_uf_in_club_sections(rankings: pd.DataFrame) -> pd.DataFrame:

@@ -23,10 +23,14 @@ def load_unranked_participants(csv_path: Path | None, years: list[int]) -> list[
     if csv_path is None or not csv_path.exists():
         return []
     with csv_path.open(encoding="utf-8", newline="") as handle:
-        return [_record(row) for row in csv.DictReader(handle) if int(row["ano"]) in years]
+        return [
+            _record(row, csv_path.name)
+            for row in csv.DictReader(handle)
+            if int(row["ano"]) in years
+        ]
 
 
-def _record(row: dict) -> dict:
+def _record(row: dict, source_name: str) -> dict:
     return {
         "ano": int(row["ano"]),
         "categoria": row["categoria"],
@@ -43,4 +47,5 @@ def _record(row: dict) -> dict:
         "linha_original": None,
         "alerta": None,
         "observacao": row["observacao"],
+        "arquivo_fonte": source_name,
     }

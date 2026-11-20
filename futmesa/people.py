@@ -9,6 +9,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from .rows import FOREIGN_MARK
+
 YOUTH = {"Sub-15", "Sub-18", "Sub-20", "Infantil"}
 MASTER = "Master"
 ADULT = "Adulto"
@@ -252,7 +254,8 @@ def _ids_for(people: list[Person]) -> list[str]:
     seen: dict[str, int] = {}
     ids: dict[int, str] = {}
     for person in ordered:
-        base = f"{_slug(person.name_key)}-{(person.first_uf or UNKNOWN_UF).lower()}"
+        uf = (person.first_uf or UNKNOWN_UF).lower().rstrip(FOREIGN_MARK)
+        base = f"{_slug(person.name_key)}-{uf}"
         seen[base] = seen.get(base, 0) + 1
         ids[id(person)] = base if seen[base] == 1 else f"{base}-{seen[base]}"
     return [ids[id(person)] for person in people]

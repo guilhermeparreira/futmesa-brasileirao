@@ -147,3 +147,29 @@ def test_youth_and_master_with_same_name_are_split():
 
     rankings = _rankings([(2000, "Sub-18", "JUNINHO", "SP"), (2024, "Master", "JUNINHO", "SP")])
     assert assign_person_ids(rankings).tolist() == ["juninho-sp", "juninho-sp-2"]
+
+
+def test_foreign_country_marked_with_star_is_kept_as_uf():
+    row = parse_ranking_line("11º ANDRAS HICZ-HU* 30 24 8 6 10 99 91 8", ["pontos", "jogos", "vitorias", "empates", "derrotas", "gols_pro", "gols_contra", "saldo_gols"])
+    assert (row.botonista, row.uf_botonista) == ("ANDRAS HICZ", "HU*")
+
+
+def test_unmarked_foreign_code_is_not_a_uf():
+    row = parse_ranking_line("11º ANDRAS HICZ-HU", None)
+    assert row.uf_botonista is None
+
+
+def test_overall_position_stacks_divisions_by_level():
+    from futmesa.transform import fill_overall_positions
+
+    rankings = pd.DataFrame(
+        {
+            "ano": [2025] * 5 + [2026],
+            "categoria": ["Adulto", "Adulto", "Adulto", "Adulto", "Master", "Adulto"],
+            "divisao_nivel": [1, 1, 2, 2, 1, 1],
+            "posicao": pd.array([1, 2, 1, 2, 1, 1], dtype="Int64"),
+            "posicao_geral": pd.array([None] * 5 + [7], dtype="Int64"),
+        }
+    )
+    filled = fill_overall_positions(rankings)
+    assert filled["posicao_geral"].tolist() == [1, 2, 3, 4, 1, 7]

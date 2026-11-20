@@ -1,5 +1,5 @@
 ano,texto_original,texto_corrigido,observacao
-2011,HORVATH IMRE-Hungria,HORVATH IMRE,Atleta estrangeiro (Hungria); sem UF
+2011,HORVATH IMRE-Hungria,HORVATH IMRE-HU*,Atleta estrangeiro (Hungria): país no lugar da UF (HU*)
 2019,NATHAN FELIPE - MG 21 9 o 12,NATHAN FELIPE - MG   21   9   0   12,Empates impressos como 'o' (letra) no PDF; lido como 0
 2019,R. KINAL - se,R. KINAL,UF ilegível no PDF ('se'); deixada em branco
 2019,J. P. GARDELIN - se 21 7 o 14 100 110 10 21,J. P. GARDELIN   21   7   0   14   100   110   -10   21,UF ilegível no PDF ('se'); empates 'o' lido como 0; saldo impresso 10 corrigido para -10 (100 - 110)
@@ -7,3 +7,5 @@ ano,texto_original,texto_corrigido,observacao
 2019,JOTA - PE 21 4 3 14 76 105 -29 1S,JOTA - PE   21   4   3   14   76   105   -29   15,Pontos impressos como '1S' no PDF; lido como 15 (= 3V + E)
 2019,EIROFF - SC 21 3 2 16 44 89 -45 l,EIROFF - SC   21   3   2   16   44   89   -45   11,Pontos impressos como 'l' no PDF; lido como 11 (= 3V + E)
 2019,CLÁUDI0 - RS,CLÁUDIO - RS,Nome impresso com zero no lugar da letra O ('CLÁUDI0')
+2026,ANDRAS HICZ-HU,ANDRAS HICZ-HU*,Atleta estrangeiro (Hungria): país no lugar da UF (HU*)
+2026,HALLEY TANAKA-JP,HALLEY TANAKA-JP*,Atleta estrangeiro (Japão): país no lugar da UF (JP*)

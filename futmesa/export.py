@@ -25,11 +25,16 @@ DATA_DICTIONARY = {
     "categoria": "Adulto, Master, Sub-20, Sub-18, Sub-15 ou Infantil. Até 1992 só havia a categoria "
     "aberta (aqui Adulto), dividida em séries Ouro/Prata/Bronze, mais a Sub-18 a partir de 1990",
     "divisao": "Ouro, Prata, Bronze, Extra, Copa, 1ª a 5ª Divisão, ou Única quando a categoria "
-    "não teve divisões",
+    "não teve divisões. Nas tabelas oficiais, uma nova divisão começa sempre que DIV. volta a 1º",
     "divisao_nivel": "Nível da divisão na categoria/ano (1 = principal). Ouro>Prata>Bronze>Extra>Copa; "
     "Nª Divisão = N; Única = 1",
     "secao_original": "Título da tabela exatamente como no PDF (ex.: 'ADULTO – Copa Santos')",
-    "posicao": "Classificação final na divisão; vazio para participante citado sem colocação",
+    "posicao": "Classificação final dentro da divisão (coluna DIV. das tabelas oficiais); vazio "
+    "para participante citado sem colocação",
+    "posicao_geral": "Classificação acumulada na categoria, somando as divisões: cada divisão começa "
+    "logo após a última posição das divisões de cima (ordem de divisao_nivel). Nas tabelas oficiais "
+    "(2026 em diante) é a coluna POS.; nos anos do histórico, que não a trazem, é calculada com a "
+    "mesma regra",
     "botonista": "Nome do botonista como impresso, sem clube, UF e apelido",
     "apelido": "Apelido entre aspas no PDF (ex.: Rubinho)",
     "botonista_chave": "Nome sem acentos/pontuação, em maiúsculas — apoio para unificar o mesmo "
@@ -41,7 +46,8 @@ DATA_DICTIONARY = {
     "clube_padronizado": "Clube após o de-para aprovado (dados/depara_clubes.csv)",
     "clube": "Clube entre parênteses (anos iniciais), após o traço (2008) ou sigla (2002 Sub-18/15)",
     "cidade_botonista": "Cidade do clube quando vem no formato '(Clube – Cidade)'",
-    "uf_botonista": "UF pela qual o botonista jogou",
+    "uf_botonista": "UF pela qual o botonista jogou; atleta estrangeiro: sigla do país seguida de * "
+    "(HU*, JP*)",
     "wo": "Verdadeiro quando a linha traz a marca (WO)",
     "jogos": "J – jogos disputados",
     "vitorias": "V – vitórias",
@@ -51,9 +57,12 @@ DATA_DICTIONARY = {
     "gols_contra": "GC – gols sofridos",
     "saldo_gols": "SG – saldo de gols",
     "pontos": "PG – pontos ganhos",
-    "observacao": "Correção manual aplicada à linha (ver dados/correcoes_texto.csv)",
-    "pagina_pdf": "Página do PDF de onde a linha foi extraída",
-    "linha_original": "Texto da linha no PDF, para auditoria",
+    "observacao": "Correção manual aplicada à linha (ver dados/correcoes_texto.csv) ou "
+    "explicação de como ela foi lida",
+    "arquivo_fonte": "Arquivo de onde a linha veio: o PDF do histórico ou o PDF oficial da "
+    "categoria (lido via markitdown)",
+    "pagina_pdf": "Página do arquivo_fonte de onde a linha foi extraída",
+    "linha_original": "Texto da linha no PDF (ou no markdown gerado dele), para auditoria",
 }
 
 

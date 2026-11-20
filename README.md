@@ -1,8 +1,12 @@
 # Base histórica — Campeonato Brasileiro Individual de Futebol de Mesa (12 Toques)
 
-Extrai do PDF *Histórico do Campeonato Brasileiro Individual 12 Toques* todas as
-classificações finais (1989–2025, 35 edições; não houve campeonato em 2020 e 2021)
-e gera uma base tabular em **Parquet** e **Excel**.
+Gera uma base tabular em **Parquet** e **Excel** com todas as classificações finais
+(1989 em diante; não houve campeonato em 2020 e 2021), a partir de duas fontes:
+
+| Fonte | Anos | Uso |
+|---|---|---|
+| **Tabelas oficiais** do campeonato: um PDF por categoria (`dados/<ano>/*.pdf`), convertido para markdown com [markitdown](https://github.com/microsoft/markitdown) | 2026 em diante | **padrão** para acrescentar um ano novo: sai direto das tabelas, sem esperar o histórico |
+| PDF *Histórico do Campeonato Brasileiro Individual 12 Toques* | 1989–2025 | reconstruir a base inteira |
 
 ## Saídas (`saida/`)
 
@@ -15,6 +19,18 @@ e gera uma base tabular em **Parquet** e **Excel**.
 
 Chave de `classificacao`: `ano + categoria + divisao + posicao` (posição vazia só para
 participantes citados sem colocação).
+
+Duas classificações por linha:
+
+- `posicao`: dentro da divisão (coluna **DIV.** das tabelas oficiais; no histórico, a
+  posição impressa em cada tabela);
+- `posicao_geral`: acumulada na categoria — cada divisão começa logo após a última posição
+  das divisões de cima (ordem de `divisao_nivel`); não volta a 1 a cada divisão. Nas tabelas
+  oficiais é a coluna **POS.**; nos anos do histórico, que não a trazem, é **calculada** com a
+  mesma regra. Em 1991 o histórico só publicou os primeiros de cada série, então a posição
+  geral da Prata e do Bronze desse ano fica subestimada.
+
+`arquivo_fonte` diz de qual arquivo cada linha veio.
 A descrição de cada coluna está na aba `dicionario` do Excel.
 
 ## Regras de tratamento
@@ -47,19 +63,55 @@ A descrição de cada coluna está na aba `dicionario` do Excel.
 ## Como rodar
 
 Requisitos: Python ≥ 3.10, `poppler-utils` (fornece `pdftotext`; já vem no Ubuntu
-desktop) e as bibliotecas de `requirements.txt`.
+desktop) e as bibliotecas de `requirements.txt` (inclui `markitdown[pdf]`).
 
 ```bash
 pip install -r requirements.txt
-python -m futmesa --pdf HISTORICO.pdf --saida saida          # reconstrói a base inteira
-python -m pytest -q tests                                     # testes do parser
+python -m futmesa --tabelas dados/2026 --saida saida         # acrescenta/substitui um ano
+python -m futmesa --pdf HISTORICO.pdf --saida saida          # reconstrói 1989–2025
+python -m pytest -q tests                                     # testes dos parsers
 ```
 
-## Adicionar o campeonato do próximo ano
+Para reconstruir tudo do zero: rode o histórico e depois `--tabelas` de cada ano recente.
 
-1. Acrescente uma linha em `dados/campeonatos.csv` (ano, edição, cidade, UF, local,
-   datas, participantes) — opcional, mas é de lá que vêm local e datas.
-2. Rode **um** dos comandos:
+## Adicionar o campeonato do próximo ano (padrão: tabelas oficiais)
+
+1. Crie a pasta `dados/<ano>/` e coloque nela os PDFs oficiais, um por categoria
+   (ex.: `2026_tabela128_ADULTO_br_individual_OFICIAL.pdf`).
+2. Rode:
+
+```bash
+python -m futmesa --tabelas dados/2026 --saida saida      # ano = nome da pasta (ou --ano 2026)
+```
+
+O que acontece:
+
+- cada PDF é convertido com markitdown para `dados/<ano>/<mesmo nome>.md` (fica salvo
+  para auditoria);
+- do markdown é lida só a tabela **CLASSIFICAÇÃO FINAL** (últimas páginas):
+  - `POS.` → `posicao_geral`. `Campeão`/`Vice` são o 1º/2º da divisão; na posição geral
+    ficam logo depois das divisões de cima (Campeão da 2ª divisão com 16 na 1ª = 17º);
+  - `DIV.` → `posicao`. Toda vez que DIV. volta a 1º começa a divisão seguinte
+    (1ª, 2ª, …); o nome é conferido com os títulos de mata-mata do próprio PDF
+    (`ADULTO - 3ª DIVISÃO`) e o pipeline para com erro se a contagem não bater;
+  - `ATLETA` (`NOME-UF`) e as estatísticas, pelo cabeçalho `PG J V E D GP GC SG IA%`
+    (IA% não é guardado: é PG / 3J);
+- edição, sede e datas vêm do cabeçalho das páginas (`36º CAMPEONATO…`, `CAMPINAS/SP`,
+  `18 A 21 ABRIL`); `dados/campeonatos.csv` continua valendo por cima (ex.: para o local);
+- o ano substitui o mesmo ano da base e os demais são mantidos — rodar de novo não duplica.
+
+Erros de digitação e atletas estrangeiros vão em `dados/correcoes_texto.csv`, como no
+histórico. Estrangeiro: a sigla do país vai em `uf_botonista` seguida de `*`
+(`ANDRAS HICZ-HU` → `ANDRAS HICZ-HU*`, `uf_botonista = HU*`); o `*` não entra no `id_botonista`.
+
+**Colunas deslocadas.** Na tabela Sub-18 de 2026 os números estão uma coluna à direita
+dos rótulos (`PG J …` sobre `23 35 14 11 2 1 68 36`): lida como impressa, nenhuma linha
+fecha (J=35, mas V+E+D=27); deslocada, todas fecham (J=14, V=11, E=2, D=1, PG=35). Quando
+isso acontece em **todas** as linhas de uma categoria, o pipeline lê com o deslocamento,
+deixa `saldo_gols` vazio (não impresso) e marca as linhas na `observacao` e na
+verificação `colunas_deslocadas`.
+
+### Alternativa: PDF do histórico
 
 ```bash
 # PDF do histórico atualizado (com o novo ano no índice): extrai só 2026 e anexa
@@ -75,8 +127,10 @@ python -m futmesa --pdf HISTORICO_ATUALIZADO.pdf --saida saida
 Com `--anos`/`--ano-unico`, os anos informados **substituem** os mesmos anos da base e os
 demais são mantidos — rodar de novo não duplica nada.
 
-O novo PDF precisa manter o padrão de tabela (`CATEGORIA - Divisão`, cabeçalho
-`CF TÉCNICOS …`, linhas `1º NOME-UF …`). Depois de rodar, confira a aba `qualidade`.
+O PDF do histórico precisa manter o padrão de tabela (`CATEGORIA - Divisão`, cabeçalho
+`CF TÉCNICOS …`, linhas `1º NOME-UF …`). Para os anos que já vieram das tabelas oficiais,
+não rode `--anos` com o histórico: ele trocaria a tabela oficial pelo texto do histórico.
+Em qualquer caso, confira a aba `qualidade` depois de rodar.
 
 ## Padronização de nomes (de-para)
 
@@ -122,8 +176,11 @@ Entram na base com `posicao` vazia e a explicação em `observacao`.
   texto e fica registrada na coluna `observacao` da linha afetada. Se o trecho deixar de
   existir no PDF, o pipeline para com erro em vez de ignorar.
 - Aba/verificação `qualidade` (não altera dados, só reporta):
-  - posições descontínuas e chaves duplicadas (hoje: nenhuma);
-  - `uf_ausente`: linhas sem UF no PDF (1997, tabelas Sub-18/15 de 2002 que trazem sigla
+  - posições descontínuas (na divisão e, `posicao_geral_descontinua`, na categoria) e
+    chaves duplicadas (hoje: nenhuma);
+  - `colunas_deslocadas`: tabela oficial lida com o deslocamento de colunas corrigido
+    (Sub-18 de 2026);
+  - `uf_ausente`: linhas sem UF no PDF (estrangeiros têm a sigla do país com `*`, não entram aqui) (1997, tabelas Sub-18/15 de 2002 que trazem sigla
     de clube no lugar da UF, etc.);
   - `saldo_diferente_de_gf_menos_gc` / `pontos_diferente_de_3v_mais_e`: inconsistências
     do próprio PDF (ex.: sinal do saldo ausente em 2019; Sub-18 2016–2017 com pontos que
@@ -140,6 +197,7 @@ Entram na base com `posicao` vazia e a explicação em `observacao`.
 
 ```
 futmesa/
+  official_tables.py  tabelas oficiais: PDF → markdown (markitdown) → classificação final
   pdf_text.py     PDF → texto por página (pdftotext -layout) e leitura do índice
   sections.py     títulos de seção (categoria/divisão) e cabeçalhos de tabela
   rows.py         uma linha de classificação → nome, apelido, clube, cidade, UF, estatísticas
@@ -150,6 +208,7 @@ futmesa/
   export.py       Parquet/Excel e merge de anos novos
   pipeline.py     orquestração;  __main__.py  linha de comando
 dados/
+  <ano>/                 PDFs oficiais do campeonato (um por categoria) e o markdown gerado
   campeonatos.csv        local, datas e participantes por edição (curadoria do texto do PDF)
   correcoes_texto.csv    correções manuais
 ```

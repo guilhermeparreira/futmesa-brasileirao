@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+from .official_tables import SHIFTED_COLUMNS_NOTE
 from .transform import PRIMARY_KEY, UNREAD_STATS_NOTE
 
 ISSUE_COLUMNS = ["verificacao", "ano", "secao_original", "posicao", "botonista", "detalhe"]
@@ -28,9 +29,11 @@ def run_quality_checks(rankings: pd.DataFrame, expected_years: list[int]) -> pd.
         _years_without_rows(rankings, expected_years),
         _duplicated_keys(rankings),
         _position_gaps(rankings),
+        _overall_position_gaps(rankings),
         _same_player_twice(rankings),
         _missing_state(rankings),
         _unread_statistics(rankings),
+        _shifted_columns(rankings),
         _games_mismatch(rankings),
         _goal_difference_mismatch(rankings),
         _points_mismatch(rankings),
@@ -85,6 +88,27 @@ def _position_gaps(rankings: pd.DataFrame) -> pd.DataFrame:
     ]
     rows = pd.DataFrame(gaps, columns=["ano", "secao_original", "detalhe"])
     return rows.assign(verificacao="posicoes_descontinuas").reindex(columns=ISSUE_COLUMNS)
+
+
+def _overall_position_gaps(rankings: pd.DataFrame) -> pd.DataFrame:
+    """``posicao_geral`` must run 1..N in every category that has it."""
+    gaps = [
+        {
+            "ano": year,
+            "secao_original": category,
+            "detalhe": f"posições gerais {positions}",
+        }
+        for (year, category), rows in rankings.groupby(["ano", "categoria"], sort=False)
+        if (positions := sorted(rows["posicao_geral"].dropna().astype(int)))
+        and positions != list(range(1, len(positions) + 1))
+    ]
+    rows = pd.DataFrame(gaps, columns=["ano", "secao_original", "detalhe"])
+    return rows.assign(verificacao="posicao_geral_descontinua").reindex(columns=ISSUE_COLUMNS)
+
+
+def _shifted_columns(rankings: pd.DataFrame) -> pd.DataFrame:
+    shifted = rankings[rankings["observacao"].fillna("").str.contains(SHIFTED_COLUMNS_NOTE, regex=False)]
+    return _label(shifted, "colunas_deslocadas", SHIFTED_COLUMNS_NOTE)
 
 
 def _missing_state(rankings: pd.DataFrame) -> pd.DataFrame:
